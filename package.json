@@ -1,0 +1,19 @@
+{
+  "name": "logical-gateway",
+  "version": "1.0.0",
+  "description": "MQTT logical gateway for Schneider PM5340 power meters (Modbus TCP)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "modbus-serial": "^8.0.19",
+    "mqtt": "^5.10.3",
+    "pino": "^9.6.0"
+  }
+}

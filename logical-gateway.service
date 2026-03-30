@@ -1,0 +1,20 @@
+[Unit]
+Description=PM5340 logical gateway (Modbus TCP to MQTT)
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=logical-gateway
+Group=logical-gateway
+WorkingDirectory=/opt/logical-gateway
+EnvironmentFile=/opt/logical-gateway/.env
+ExecStart=/usr/bin/node /opt/logical-gateway/src/index.js
+Restart=always
+RestartSec=5
+
+# Hardening (optional; adjust if you hit permission issues)
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

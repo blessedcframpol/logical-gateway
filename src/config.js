@@ -92,6 +92,7 @@ export function loadConfig() {
   const pollIntervalMs = parsePositiveInt("POLL_INTERVAL_MS", process.env.POLL_INTERVAL_MS, 5000);
   const outageConfirmMs = parsePositiveInt("OUTAGE_CONFIRM_MS", process.env.OUTAGE_CONFIRM_MS, 30000);
   const modbusTimeoutMs = parsePositiveInt("MODBUS_TIMEOUT_MS", process.env.MODBUS_TIMEOUT_MS, 3000);
+  const modbusRetryMs = parsePositiveInt("MODBUS_RETRY_MS", process.env.MODBUS_RETRY_MS, 3000);
   const logLevel = process.env.LOG_LEVEL?.trim() || "info";
   const logMeterReadings = envBool("LOG_METER_READINGS", true);
 
@@ -104,6 +105,7 @@ export function loadConfig() {
     pollIntervalMs,
     outageConfirmMs,
     modbusTimeoutMs,
+    modbusRetryMs,
     logLevel,
     logMeterReadings,
     devices,

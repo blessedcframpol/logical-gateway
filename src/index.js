@@ -1,146 +1,9 @@
 import { loadConfig } from "./config.js";
 import { createLogger } from "./logger.js";
 import { createMqttClient } from "./mqttClient.js";
-import { readMeterSnapshot } from "./modbus/pm5340Client.js";
-import { snapshotToTelemetryFields } from "./utils/registerConverters.js";
+import { startDeviceSession } from "./devicePoller.js";
 import { createOutageEngine } from "./outageEngine.js";
 import { createTelemetryPublisher } from "./publishers/telemetryPublisher.js";
-
-function startDevicePoller(device, config, logger, mqttApi, outageEngine, publisher) {
-  const { pollIntervalMs, modbusTimeoutMs, logMeterReadings } = config;
-
-  async function tick() {
-    let snapshot;
-    try {
-      snapshot = await readMeterSnapshot({
-        host: device.host,
-        port: device.port,
-        unitId: device.unitId,
-        timeoutMs: modbusTimeoutMs,
-      });
-    } catch (err) {
-      logger.error(
-        {
-          err,
-          deviceCode: device.deviceCode,
-          site: device.site,
-          event: "modbus_poll_failed",
-        },
-        err instanceof Error ? err.message : String(err),
-      );
-      try {
-        await publisher.publishStatus(device, "comm_fault", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } catch (pubErr) {
-        logger.error(
-          {
-            err: pubErr,
-            deviceCode: device.deviceCode,
-            event: "status_publish_failed",
-          },
-          pubErr instanceof Error ? pubErr.message : String(pubErr),
-        );
-      }
-      return;
-    }
-
-    let fields;
-    try {
-      fields = snapshotToTelemetryFields(snapshot);
-    } catch (err) {
-      logger.error(
-        {
-          err,
-          deviceCode: device.deviceCode,
-          site: device.site,
-          event: "register_decode_failed",
-        },
-        err instanceof Error ? err.message : String(err),
-      );
-      try {
-        await publisher.publishStatus(device, "comm_fault", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } catch (pubErr) {
-        logger.error(
-          { err: pubErr, deviceCode: device.deviceCode, event: "status_publish_failed" },
-          pubErr instanceof Error ? pubErr.message : String(pubErr),
-        );
-      }
-      return;
-    }
-
-    const phaseV = fields.phaseVoltageV;
-    const now = Date.now();
-    const outageEvt = outageEngine.update(device, phaseV, now);
-
-    if (logMeterReadings) {
-      logger.info(
-        {
-          event: "meter_readings",
-          deviceCode: device.deviceCode,
-          site: device.site,
-          readings: fields,
-        },
-        "decoded Modbus telemetry",
-      );
-    }
-
-    try {
-      await publisher.publishTelemetry(device, fields);
-      await publisher.publishStatus(device, "online");
-      if (outageEvt) {
-        await publisher.publishOutage(device, outageEvt);
-      }
-    } catch (pubErr) {
-      logger.error(
-        {
-          err: pubErr,
-          deviceCode: device.deviceCode,
-          site: device.site,
-          event: "mqtt_publish_failed",
-        },
-        pubErr instanceof Error ? pubErr.message : String(pubErr),
-      );
-    }
-  }
-
-  let locked = false;
-  const handle = setInterval(() => {
-    if (locked) {
-      logger.debug({ deviceCode: device.deviceCode, event: "poll_skipped_overlap" }, "previous poll still running");
-      return;
-    }
-    locked = true;
-    tick()
-      .catch((e) => {
-        logger.error(
-          { err: e, deviceCode: device.deviceCode, event: "poll_tick_unexpected" },
-          e instanceof Error ? e.message : String(e),
-        );
-      })
-      .finally(() => {
-        locked = false;
-      });
-  }, pollIntervalMs);
-
-  setImmediate(() => {
-    locked = true;
-    tick()
-      .catch((e) => {
-        logger.error(
-          { err: e, deviceCode: device.deviceCode, event: "initial_poll_unexpected" },
-          e instanceof Error ? e.message : String(e),
-        );
-      })
-      .finally(() => {
-        locked = false;
-      });
-  });
-
-  return handle;
-}
 
 async function main() {
   let config;
@@ -184,13 +47,19 @@ async function main() {
     "logical gateway running",
   );
 
-  const handles = config.devices.map((device) =>
-    startDevicePoller(device, config, logger, mqttApi, outageEngine, publisher),
+  const stopSessions = config.devices.map((device) =>
+    startDeviceSession({
+      device,
+      config,
+      logger,
+      outageEngine,
+      publisher,
+    }),
   );
 
   const shutdown = async (signal) => {
     logger.info({ event: "shutdown", signal }, "stopping");
-    for (const h of handles) clearInterval(h);
+    for (const stop of stopSessions) stop();
     await mqttApi.end();
     process.exit(0);
   };
@@ -199,16 +68,19 @@ async function main() {
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
+/**
+ * Device Modbus/MQTT paths must never take down the whole gateway. Log unexpected faults for ops.
+ * Intentionally no process.exit — MQTT keeps reconnecting; device loops self-heal.
+ */
 process.on("uncaughtException", (err) => {
   const log = createLogger(process.env.LOG_LEVEL?.trim() || "error");
-  log.fatal({ err, event: "uncaught_exception" }, err.message);
-  process.exit(1);
+  log.error({ err, event: "uncaught_exception" }, err?.message || String(err));
 });
 
 process.on("unhandledRejection", (reason) => {
   const log = createLogger(process.env.LOG_LEVEL?.trim() || "error");
-  log.fatal({ err: reason, event: "unhandled_rejection" }, String(reason));
-  process.exit(1);
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  log.error({ err: reason, event: "unhandled_rejection" }, msg);
 });
 
 main().catch((err) => {

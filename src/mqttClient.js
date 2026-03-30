@@ -51,22 +51,38 @@ export function createMqttClient({ url, logger, username, password }) {
     logger.error({ err, event: "mqtt_error", url }, err.message);
   });
 
+  const publishWaitPollMs = 250;
+
   /**
+   * Publish JSON at QoS 1. If the broker dropped temporarily, waits until reconnect or timeout
+   * so device status/telemetry can outlive brief MQTT outages without throwing immediately.
+   *
    * @param {string} topic
    * @param {object} payload
+   * @param {{ waitForMs?: number }} [opts]
    * @returns {Promise<void>}
    */
-  function publishJson(topic, payload) {
+  function publishJson(topic, payload, opts = {}) {
+    const waitForMs = opts.waitForMs ?? 60_000;
     const body = JSON.stringify(payload);
+    const deadline = Date.now() + waitForMs;
+
     return new Promise((resolve, reject) => {
-      if (!client.connected) {
-        reject(new Error("MQTT client not connected"));
-        return;
+      function attempt() {
+        if (client.connected) {
+          client.publish(topic, body, { qos: MQTT_QOS }, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+          return;
+        }
+        if (Date.now() >= deadline) {
+          reject(new Error(`MQTT publish timeout after ${waitForMs}ms (not connected)`));
+          return;
+        }
+        setTimeout(attempt, publishWaitPollMs);
       }
-      client.publish(topic, body, { qos: MQTT_QOS }, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      attempt();
     });
   }
 

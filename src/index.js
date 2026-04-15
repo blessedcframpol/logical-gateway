@@ -8,7 +8,7 @@ import { createTelemetryPublisher } from "./publishers/telemetryPublisher.js";
 async function main() {
   let config;
   try {
-    config = loadConfig();
+    config = await loadConfig();
   } catch (err) {
     const boot = createLogger(process.env.LOG_LEVEL?.trim() || "error");
     boot.fatal({ err, event: "config_error" }, err instanceof Error ? err.message : String(err));

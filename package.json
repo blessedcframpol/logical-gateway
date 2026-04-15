@@ -11,6 +11,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
     "dotenv": "^16.4.7",
     "modbus-serial": "^8.0.19",
     "mqtt": "^5.10.3",

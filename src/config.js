@@ -1,6 +1,5 @@
 import "dotenv/config";
-
-const REQUIRED_DEVICE_KEYS = ["deviceCode", "name", "site", "host", "port", "unitId"];
+import { fetchMetersFromSupabase } from "./supabaseDevices.js";
 
 function envBool(name, defaultValue) {
   const raw = process.env[name];
@@ -17,48 +16,21 @@ function parsePositiveInt(name, raw, fallback) {
   return n;
 }
 
-function parseDevices(raw) {
-  if (raw === undefined || raw === null || String(raw).trim() === "") {
-    throw new Error("DEVICES is required (JSON array of meter objects)");
+async function loadDevicesFromSupabase() {
+  const supabaseUrl = process.env.SUPABASE_URL?.trim() ?? "";
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  const table =
+    process.env.SUPABASE_DEVICES_TABLE?.trim() ||
+    process.env.SUPABASE_GATEWAY_DEVICES_TABLE?.trim() ||
+    "devices";
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error(
+      "Meters are loaded only from Supabase: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (service role; server-side only)",
+    );
   }
-  let parsed;
-  try {
-    parsed = JSON.parse(String(raw));
-  } catch (e) {
-    throw new Error(`DEVICES must be valid JSON: ${e.message}`);
-  }
-  if (!Array.isArray(parsed)) {
-    throw new Error("DEVICES must be a JSON array");
-  }
-  if (parsed.length === 0) {
-    throw new Error("DEVICES must contain at least one meter");
-  }
-  return parsed.map((d, i) => {
-    if (!d || typeof d !== "object") {
-      throw new Error(`DEVICES[${i}] must be an object`);
-    }
-    for (const k of REQUIRED_DEVICE_KEYS) {
-      if (d[k] === undefined || d[k] === null || d[k] === "") {
-        throw new Error(`DEVICES[${i}] missing required field: ${k}`);
-      }
-    }
-    const port = Number.parseInt(String(d.port), 10);
-    const unitId = Number.parseInt(String(d.unitId), 10);
-    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
-      throw new Error(`DEVICES[${i}].port must be a valid TCP port`);
-    }
-    if (!Number.isFinite(unitId) || unitId < 0 || unitId > 255) {
-      throw new Error(`DEVICES[${i}].unitId must be 0-255`);
-    }
-    return {
-      deviceCode: String(d.deviceCode),
-      name: String(d.name),
-      site: String(d.site),
-      host: String(d.host),
-      port,
-      unitId,
-    };
-  });
+
+  return fetchMetersFromSupabase(supabaseUrl, supabaseKey, table);
 }
 
 /**
@@ -86,7 +58,7 @@ function parseMqttAuth() {
   };
 }
 
-export function loadConfig() {
+export async function loadConfig() {
   const mqttUrl = process.env.MQTT_URL?.trim() || "mqtt://127.0.0.1:1883";
   const { mqttUsername, mqttPassword } = parseMqttAuth();
   const pollIntervalMs = parsePositiveInt("POLL_INTERVAL_MS", process.env.POLL_INTERVAL_MS, 5000);
@@ -96,7 +68,7 @@ export function loadConfig() {
   const logLevel = process.env.LOG_LEVEL?.trim() || "info";
   const logMeterReadings = envBool("LOG_METER_READINGS", true);
 
-  const devices = parseDevices(process.env.DEVICES);
+  const devices = await loadDevicesFromSupabase();
 
   return {
     mqttUrl,

@@ -1,5 +1,4 @@
 import "dotenv/config";
-import { fetchMetersFromSupabase } from "./supabaseDevices.js";
 
 function envBool(name, defaultValue) {
   const raw = process.env[name];
@@ -16,21 +15,23 @@ function parsePositiveInt(name, raw, fallback) {
   return n;
 }
 
-async function loadDevicesFromSupabase() {
-  const supabaseUrl = process.env.SUPABASE_URL?.trim() ?? "";
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+/**
+ * @returns {{ url: string; serviceRoleKey: string; table: string }}
+ */
+function readSupabaseConfig() {
+  const url = process.env.SUPABASE_URL?.trim() ?? "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
   const table =
     process.env.SUPABASE_DEVICES_TABLE?.trim() ||
     process.env.SUPABASE_GATEWAY_DEVICES_TABLE?.trim() ||
     "devices";
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!url || !serviceRoleKey) {
     throw new Error(
       "Meters are loaded only from Supabase: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (service role; server-side only)",
     );
   }
-
-  return fetchMetersFromSupabase(supabaseUrl, supabaseKey, table);
+  return { url, serviceRoleKey, table };
 }
 
 /**
@@ -58,17 +59,23 @@ function parseMqttAuth() {
   };
 }
 
-export async function loadConfig() {
+export function loadConfig() {
   const mqttUrl = process.env.MQTT_URL?.trim() || "mqtt://127.0.0.1:1883";
   const { mqttUsername, mqttPassword } = parseMqttAuth();
   const pollIntervalMs = parsePositiveInt("POLL_INTERVAL_MS", process.env.POLL_INTERVAL_MS, 5000);
   const outageConfirmMs = parsePositiveInt("OUTAGE_CONFIRM_MS", process.env.OUTAGE_CONFIRM_MS, 30000);
   const modbusTimeoutMs = parsePositiveInt("MODBUS_TIMEOUT_MS", process.env.MODBUS_TIMEOUT_MS, 3000);
   const modbusRetryMs = parsePositiveInt("MODBUS_RETRY_MS", process.env.MODBUS_RETRY_MS, 3000);
+  const deviceReloadIntervalMs = parsePositiveInt(
+    "DEVICE_RELOAD_INTERVAL_MS",
+    process.env.DEVICE_RELOAD_INTERVAL_MS,
+    60_000,
+  );
+  const deviceRealtime = envBool("DEVICE_REALTIME", true);
   const logLevel = process.env.LOG_LEVEL?.trim() || "info";
   const logMeterReadings = envBool("LOG_METER_READINGS", true);
 
-  const devices = await loadDevicesFromSupabase();
+  const supabase = readSupabaseConfig();
 
   return {
     mqttUrl,
@@ -80,8 +87,9 @@ export async function loadConfig() {
     modbusRetryMs,
     logLevel,
     logMeterReadings,
-    devices,
-    /** Phase voltages below this (volts) count toward outage when all phases are low */
+    deviceReloadIntervalMs,
+    deviceRealtime,
+    supabase,
     outageVoltageThresholdV: 20,
   };
 }

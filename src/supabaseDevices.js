@@ -24,8 +24,8 @@ export async function fetchMetersFromSupabase(url, serviceRoleKey, table = "devi
   if (error) {
     throw new Error(`Supabase gateway devices query failed: ${error.message}`);
   }
-  if (!data || data.length === 0) {
-    throw new Error(`No enabled rows in ${table} (or table empty)`);
+  if (!data) {
+    return [];
   }
 
   return data.map((row) => {

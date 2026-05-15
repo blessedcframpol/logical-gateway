@@ -36,9 +36,9 @@ Node.js service that polls Schneider PM5340 power meters over **Modbus TCP** and
 
 ## Topics
 
-- `power/{site}/{deviceCode}/telemetry` - measurements (QoS 1)
-- `power/{site}/{deviceCode}/status` - `online` or `comm_fault` (QoS 1)
-- `power/{site}/{deviceCode}/outage` - `outage_confirmed` / `outage_cleared` (QoS 1)
+- `power/{orgSlug}/{deviceCode}/telemetry` — measurements (QoS 1)
+- `power/{orgSlug}/{deviceCode}/status` — `online` / `offline` / `comm_fault` (QoS 1)
+- `power/{orgSlug}/{deviceCode}/outage` — `outage_confirmed` / `outage_cleared` (QoS 1)
 
 ## Register map
 

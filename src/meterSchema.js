@@ -20,12 +20,13 @@ function pick(d, camel, snake) {
  * Canonical meter object for Modbus + MQTT.
  * @param {object} d — camelCase (JSON env) and/or snake_case (Supabase row)
  * @param {string} ctx — error prefix, e.g. devices[row-uuid]
- * @returns {{ deviceCode: string; name: string; site: string; host: string; port: number; unitId: number; connectionType: ConnectionType }}
+ * @returns {{ deviceCode: string; name: string; site: string; orgSlug: string; host: string; port: number; unitId: number; connectionType: ConnectionType }}
  */
 export function normalizeMeter(d, ctx) {
   const deviceCode = pick(d, "deviceCode", "device_code");
   const name = pick(d, "name", "name");
   const site = pick(d, "site", "site");
+  const orgSlug = String(pick(d, "orgSlug", "organizations") || "");
   const host = pick(d, "host", "host");
   const portRaw = pick(d, "port", "port");
   const unitIdRaw = pick(d, "unitId", "unit_id");
@@ -59,10 +60,15 @@ export function normalizeMeter(d, ctx) {
     throw new Error(`${ctx}: connectionType must be single_phase or three_phase`);
   }
 
+  if (orgSlug === "") {
+    throw new Error(`${ctx}: device ${deviceCode} has no organization slug`);
+  }
+
   return {
     deviceCode: String(deviceCode),
     name: String(name),
     site: String(site),
+    orgSlug,
     host: String(host),
     port,
     unitId,

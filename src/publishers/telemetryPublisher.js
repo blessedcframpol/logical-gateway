@@ -1,17 +1,17 @@
 /**
- * @param {string} site
+ * @param {string} orgSlug
  * @param {string} deviceCode
  */
-export function telemetryTopic(site, deviceCode) {
-  return `power/${site}/${deviceCode}/telemetry`;
+export function telemetryTopic(orgSlug, deviceCode) {
+  return `power/${orgSlug}/${deviceCode}/telemetry`;
 }
 
-export function statusTopic(site, deviceCode) {
-  return `power/${site}/${deviceCode}/status`;
+export function statusTopic(orgSlug, deviceCode) {
+  return `power/${orgSlug}/${deviceCode}/status`;
 }
 
-export function outageTopic(site, deviceCode) {
-  return `power/${site}/${deviceCode}/outage`;
+export function outageTopic(orgSlug, deviceCode) {
+  return `power/${orgSlug}/${deviceCode}/outage`;
 }
 
 /**
@@ -35,7 +35,7 @@ export function createTelemetryPublisher(mqttApi) {
       timestamp: new Date().toISOString(),
       ...fields,
     };
-    await publishJson(telemetryTopic(device.site, device.deviceCode), payload, waitTelemetry);
+    await publishJson(telemetryTopic(device.orgSlug, device.deviceCode), payload, waitTelemetry);
   }
 
   /**
@@ -52,7 +52,7 @@ export function createTelemetryPublisher(mqttApi) {
       timestamp: new Date().toISOString(),
       ...extra,
     };
-    await publishJson(statusTopic(device.site, device.deviceCode), payload, waitStatus);
+    await publishJson(statusTopic(device.orgSlug, device.deviceCode), payload, waitStatus);
   }
 
   /**
@@ -60,7 +60,7 @@ export function createTelemetryPublisher(mqttApi) {
    * @param {object} outagePayload
    */
   async function publishOutage(device, outagePayload) {
-    await publishJson(outageTopic(device.site, device.deviceCode), outagePayload, waitTelemetry);
+    await publishJson(outageTopic(device.orgSlug, device.deviceCode), outagePayload, waitTelemetry);
   }
 
   return { publishTelemetry, publishStatus, publishOutage };

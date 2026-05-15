@@ -16,7 +16,7 @@ export async function fetchMetersFromSupabase(url, serviceRoleKey, table = "devi
 
   const { data, error } = await client
     .from(table)
-    .select("id, device_code, name, site, host, port, unit_id, connection_type")
+    .select("id, device_code, name, site, host, port, unit_id, connection_type, organizations(slug)")
     .eq("enabled", true)
     .order("site", { ascending: true })
     .order("device_code", { ascending: true });
@@ -30,6 +30,7 @@ export async function fetchMetersFromSupabase(url, serviceRoleKey, table = "devi
 
   return data.map((row) => {
     const id = row.id != null ? String(row.id) : "?";
-    return normalizeMeter(row, `devices[${id}]`);
+    const orgSlug = row.organizations?.slug ?? "";
+    return normalizeMeter({ ...row, orgSlug }, `devices[${id}]`);
   });
 }

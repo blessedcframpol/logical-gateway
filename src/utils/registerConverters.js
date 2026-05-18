@@ -75,13 +75,18 @@ export function telemetryExtrasFromSnapshot(snapshot) {
   /** @type {Record<string, unknown>} */
   const out = {};
 
+  /*
+   * Temporary workaround: current PoC meters have CT clamps installed in reverse,
+   * which flips current and power signs. A cleaner long-term fix is a per-device
+   * `invert_current` boolean column on `devices`.
+   */
   const iRegs = snapshot.phaseCurrentRegs;
   if (iRegs && iRegs.length >= 8) {
     out.phaseCurrentA = {
-      a: float32FromRegistersBE(iRegs, 0),
-      b: float32FromRegistersBE(iRegs, 2),
-      c: float32FromRegistersBE(iRegs, 4),
-      n: float32FromRegistersBE(iRegs, 6),
+      a: Math.abs(float32FromRegistersBE(iRegs, 0)),
+      b: Math.abs(float32FromRegistersBE(iRegs, 2)),
+      c: Math.abs(float32FromRegistersBE(iRegs, 4)),
+      n: Math.abs(float32FromRegistersBE(iRegs, 6)),
     };
   }
 
@@ -97,30 +102,30 @@ export function telemetryExtrasFromSnapshot(snapshot) {
   const apRegs = snapshot.activePowerPhaseRegs;
   if (apRegs && apRegs.length >= 6) {
     out.activePowerPhaseKw = {
-      a: float32FromRegistersBE(apRegs, 0),
-      b: float32FromRegistersBE(apRegs, 2),
-      c: float32FromRegistersBE(apRegs, 4),
+      a: Math.abs(float32FromRegistersBE(apRegs, 0)),
+      b: Math.abs(float32FromRegistersBE(apRegs, 2)),
+      c: Math.abs(float32FromRegistersBE(apRegs, 4)),
     };
   }
 
   const pRegs = snapshot.totalActivePowerRegs;
   if (pRegs && pRegs.length >= 2) {
-    out.totalActivePowerKw = float32FromRegistersBE(pRegs, 0);
+    out.totalActivePowerKw = Math.abs(float32FromRegistersBE(pRegs, 0));
   }
 
   const qRegs = snapshot.totalReactivePowerRegs;
   if (qRegs && qRegs.length >= 2) {
-    out.totalReactivePowerKvar = float32FromRegistersBE(qRegs, 0);
+    out.totalReactivePowerKvar = Math.abs(float32FromRegistersBE(qRegs, 0));
   }
 
   const sRegs = snapshot.totalApparentPowerRegs;
   if (sRegs && sRegs.length >= 2) {
-    out.totalApparentPowerKva = float32FromRegistersBE(sRegs, 0);
+    out.totalApparentPowerKva = Math.abs(float32FromRegistersBE(sRegs, 0));
   }
 
   const pfRegs = snapshot.powerFactorTotalRegs;
   if (pfRegs && pfRegs.length >= 2) {
-    out.powerFactorTotal = float32FromRegistersBE(pfRegs, 0);
+    out.powerFactorTotal = Math.abs(float32FromRegistersBE(pfRegs, 0));
   }
 
   const fRegs = snapshot.frequencyRegs;

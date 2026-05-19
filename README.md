@@ -36,7 +36,7 @@ Node.js service that polls Schneider PM5340 power meters over **Modbus TCP** and
 
 ## Topics
 
-### Current (5-segment, canonical going forward)
+### Canonical (5-segment)
 
 - `power/{orgSlug}/{siteSlug}/{deviceCode}/telemetry` — measurements (QoS 1)
 - `power/{orgSlug}/{siteSlug}/{deviceCode}/status` — `online` / `offline` / `comm_fault` (QoS 1)
@@ -46,25 +46,10 @@ Node.js service that polls Schneider PM5340 power meters over **Modbus TCP** and
 (lowercase, non-alphanumeric → single hyphen, strip leading/trailing hyphens).
 The `site` field in the payload remains the original human-readable value.
 
-### Legacy (4-segment, deprecated, dual-published for backwards compat)
-
-- `power/{orgSlug}/{deviceCode}/telemetry`
-- `power/{orgSlug}/{deviceCode}/status`
-- `power/{orgSlug}/{deviceCode}/outage`
-
-These will be removed once all dashboard subscribers have migrated to the 5-segment shape.
-
 ### Verification
 
 ```bash
-# All topics:
-mosquitto_sub -h 127.0.0.1 -t 'power/#' -v
-
-# New 5-segment shape only:
 mosquitto_sub -h 127.0.0.1 -t 'power/+/+/+/+' -v
-
-# Legacy 4-segment shape only:
-mosquitto_sub -h 127.0.0.1 -t 'power/+/+/+' -v
 ```
 
 ## Register map

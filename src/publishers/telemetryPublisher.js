@@ -43,20 +43,6 @@ export function outageTopic(orgSlug, siteSlug, deviceCode) {
   return `power/${orgSlug}/${siteSlug}/${deviceCode}/outage`;
 }
 
-// LEGACY 4-segment topic builders — remove once dashboard subscribers
-// have migrated to the 5-segment shape. See migration ticket.
-function legacyTelemetryTopic(orgSlug, deviceCode) {
-  return `power/${orgSlug}/${deviceCode}/telemetry`;
-}
-
-function legacyStatusTopic(orgSlug, deviceCode) {
-  return `power/${orgSlug}/${deviceCode}/status`;
-}
-
-function legacyOutageTopic(orgSlug, deviceCode) {
-  return `power/${orgSlug}/${deviceCode}/outage`;
-}
-
 /**
  * @param {{ publishJson: (topic: string, payload: object, opts?: object) => Promise<void> }} mqttApi
  */
@@ -84,9 +70,6 @@ export function createTelemetryPublisher(mqttApi) {
       payload,
       waitTelemetry,
     );
-    // LEGACY DUAL-PUBLISH — remove once dashboard subscribers have fully
-    // migrated to the 5-segment topic shape. Tracked separately.
-    await publishJson(legacyTelemetryTopic(device.orgSlug, device.deviceCode), payload, waitTelemetry);
   }
 
   /**
@@ -109,9 +92,6 @@ export function createTelemetryPublisher(mqttApi) {
       payload,
       waitStatus,
     );
-    // LEGACY DUAL-PUBLISH — remove once dashboard subscribers have fully
-    // migrated to the 5-segment topic shape. Tracked separately.
-    await publishJson(legacyStatusTopic(device.orgSlug, device.deviceCode), payload, waitStatus);
   }
 
   /**
@@ -125,9 +105,6 @@ export function createTelemetryPublisher(mqttApi) {
       outagePayload,
       waitTelemetry,
     );
-    // LEGACY DUAL-PUBLISH — remove once dashboard subscribers have fully
-    // migrated to the 5-segment topic shape. Tracked separately.
-    await publishJson(legacyOutageTopic(device.orgSlug, device.deviceCode), outagePayload, waitTelemetry);
   }
 
   return { publishTelemetry, publishStatus, publishOutage };
